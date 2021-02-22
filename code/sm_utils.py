@@ -82,12 +82,12 @@ def run_k_fold_tain_val_statmodels(
     input_df: pd.DataFrame,
     fold_indices: List[Tuple[np.ndarray, np.ndarray]],
     orders: List[Tuple[int, int, int]],
-    metric_funcs: List[Tuple[str, Callable]],
+    metric_funcs: List[Tuple[str, bool, Callable]],
     y_col: str = "close",
 ):
     results = dict(summaries=[])
     # Add fields for metric
-    for metric_name, _ in metric_funcs:
+    for metric_name, _, _ in metric_funcs:
         results[metric_name + "_train"] = []
         results[metric_name + "_valid"] = []
     # Run CV
@@ -102,7 +102,7 @@ def run_k_fold_tain_val_statmodels(
             .dropna()
             .reset_index(drop=True)
         )
-        print("Residual ACF/PACF")
+        print("Original ACF/PACF")
         compute_pacf_acf(y_normed_train)
         plt.show()
         # Compute AR model
@@ -169,12 +169,26 @@ def run_k_fold_tain_val_statmodels(
         plt.show()
         # Save results
         results["summaries"].append(deepcopy(arma.model.summary))
-        for metric_name, metric_func in metric_funcs:
-            m_value = metric_func(arma_train_pred_absolute, fold_train[y_col])
+        results["pred_train_diff_log"] = arma_train_pred
+        results["real_train_diff_log"] = y_normed_train
+        results["pred_absolute_nonrec"] = non_rec_train_pred
+        results["real_train_absolute"] = fold_train[y_col].values
+        results["pred_val_absolute_nonrec"] = arma_test_pred_absolute
+        results["real_val_absolute"] = fold_val[y_col].values
+        for metric_name, need_target, metric_func in metric_funcs:
+            if need_target:
+                m_value = metric_func(
+                    arma_train_pred_absolute, fold_train[y_col]
+                )
+            else:
+                m_value = metric_func(arma_train_pred_absolute)
             print(metric_name + f"_train: {m_value}")
             results[metric_name + "_train"].append(m_value)
 
-            m_value = metric_func(arma_test_pred_absolute, fold_val[y_col])
+            if need_target:
+                m_value = metric_func(arma_test_pred_absolute, fold_val[y_col])
+            else:
+                m_value = metric_func(arma_test_pred_absolute)
             print(metric_name + f"_valid: {m_value}")
             results[metric_name + "_valid"].append(m_value)
         print(f"==== Fold {f_idx} Completed")
