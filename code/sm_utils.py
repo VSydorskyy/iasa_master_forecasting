@@ -70,7 +70,7 @@ class StatmodelsWrapper(object):
         all_pred = []
         dump_len = self.X_len
         dump_x = self.X.copy()
-        for step in tqdm(range(n_steps)):
+        for step in range(n_steps):
             pred = self.model.forecast()[0]
             self.fit(list(self.X) + [pred])
             all_pred.append(pred)
